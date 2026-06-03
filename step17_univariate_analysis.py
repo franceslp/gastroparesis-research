@@ -1,4 +1,3 @@
-python3 - << 'ENDOFFILE'
 import pandas as pd
 from scipy import stats
 import warnings
