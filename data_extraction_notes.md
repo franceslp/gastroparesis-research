@@ -39,10 +39,7 @@ had valid A1c records that were previously excluded due to date format
 
 ----- 
 Update 6/4/2026
-"New extraction captured 793 patients vs 491 in original. Exact cause of difference unclear — may be due to prior filtering steps or script version differences. New extraction verified correct with QA checks."
-variation in the TriNetX source data. This change was identified during
-QA review when rebuilding the cohort after excluding 12 minor/unverifiable
-age patients (n=1,053 → n=1,041).
+"Investigation confirmed that original a1c_results.csv (491 patients) was produced by step8_pull_all_data.py for an earlier cohort, NOT by step3_find_a1c.py. The old step3 script used format='%Y%m%d' which drops ALL records since TriNetX lab dates are in YYYY-MM-DD format. New extraction (793 patients) is the correct and complete extraction for the final n=1,041 cohort."
 
 ### Date of change
 Step 3 rerun with updated extraction script after cohort cleaning.
