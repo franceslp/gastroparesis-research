@@ -35,6 +35,11 @@ New code uses pandas auto-detection which handles multiple date formats correctl
 ### Conclusion
 New extraction is more complete and accurate. The additional 302 patients
 had valid A1c records that were previously excluded due to date format
+
+
+----- 
+Update 6/4/2026
+"New extraction captured 793 patients vs 491 in original. Exact cause of difference unclear — may be due to prior filtering steps or script version differences. New extraction verified correct with QA checks."
 variation in the TriNetX source data. This change was identified during
 QA review when rebuilding the cohort after excluding 12 minor/unverifiable
 age patients (n=1,053 → n=1,041).
