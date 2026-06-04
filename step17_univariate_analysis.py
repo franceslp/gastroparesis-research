@@ -53,7 +53,7 @@ for col in med_cols:
 conf_cols = [c for c in ["patient_id"] + med_cols if c in confounders.columns]
 df = df.merge(confounders[conf_cols], on="patient_id", how="left")
 
-gpoem_codes = ["43999", "43659", "43210"]
+gpoem_codes = ["43999", "43659"]
 df["is_gpoem"] = df["procedure_code"].isin(gpoem_codes).astype(int) if "procedure_code" in df.columns else 0
 df["high_baseline"] = (df["baseline_a1c"] >= 7.0).astype(int) if "baseline_a1c" in df.columns else 0
 
@@ -217,4 +217,3 @@ if "marital_status" in df.columns:
 
 print("\n* p < 0.05")
 print("\nNote: BMI and diabetes duration excluded due to VM disk space constraints.")
-
