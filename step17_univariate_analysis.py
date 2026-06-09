@@ -1,6 +1,8 @@
 import pandas as pd
 from scipy import stats
 import warnings
+import os
+import numpy as np
 
 warnings.filterwarnings("ignore")
 
@@ -34,7 +36,9 @@ for col in ["baseline_a1c", "approximate_age", "responder"]:
 # PROCEDURE DATE
 # ==========================================
 if "procedure_date" in proc_flags.columns:
-    proc_flags["procedure_date"] = pd.to_datetime(proc_flags["procedure_date"], errors="coerce")
+    proc_flags["procedure_date"] = pd.to_datetime(
+        proc_flags["procedure_date"], errors="coerce"
+    )
 
 # ==========================================
 # MERGE DEMOGRAPHICS
@@ -78,20 +82,32 @@ conf_cols = [c for c in ["patient_id"] + med_cols if c in confounders.columns]
 df = df.merge(confounders[conf_cols], on="patient_id", how="left")
 
 # ==========================================
+# BMI
+# ==========================================
+if os.path.exists("preop_bmi.csv"):
+    bmi = pd.read_csv("preop_bmi.csv", dtype=str)
+    bmi["patient_id"] = bmi["patient_id"].astype(str).str.strip()
+    bmi["preop_bmi"] = pd.to_numeric(bmi["preop_bmi"], errors="coerce")
+    df = df.merge(bmi[["patient_id", "preop_bmi"]], on="patient_id", how="left")
+    print(f"Patients with BMI data: {df['preop_bmi'].notna().sum()}")
+else:
+    df["preop_bmi"] = np.nan
+    print("preop_bmi.csv not found — BMI excluded")
+
+# ==========================================
 # DERIVED VARIABLES
 # ==========================================
 gpoem_codes = ["43999", "43659"]
 df["is_gpoem"] = df["procedure_code"].isin(gpoem_codes).astype(int) if "procedure_code" in df.columns else 0
 
-# FIXED: robust numeric conversion
+# Robust numeric conversion
 df["high_baseline"] = (pd.to_numeric(df["baseline_a1c"], errors="coerce") >= 7.0).astype(int)
 
 # ==========================================
-# AGE GROUPING (FIXED NaN ISSUE)
+# AGE GROUPING (NaN SAFE)
 # ==========================================
 age_bins = [(0, 40, "<40"), (40, 55, "40-54"), (55, 65, "55-64"), (65, 120, "65+")]
 df["age_group"] = "Unknown"
-
 age = pd.to_numeric(df["approximate_age"], errors="coerce")
 for low, high, label in age_bins:
     df.loc[(age >= low) & (age < high), "age_group"] = label
@@ -124,7 +140,7 @@ else:
     df["is_hispanic"] = 0
 
 # ==========================================
-# FILTER OUT INVALID OUTCOME
+# FILTER INVALID OUTCOME
 # ==========================================
 df = df[df["responder"].isin([0, 1])].copy()
 
@@ -139,16 +155,14 @@ print(f"\n{'Predictor':<45}{'Responder':>12}{'Non-Resp':>12}{'p-value':>12}")
 print("-" * 85)
 
 # ==========================================
-# TEST FUNCTIONS (FIXED)
+# TEST FUNCTIONS
 # ==========================================
 def mannwhitney_row(label, r_col, nr_col):
     r = pd.to_numeric(r_col, errors="coerce").dropna()
     nr = pd.to_numeric(nr_col, errors="coerce").dropna()
-
     if len(r) < 3 or len(nr) < 3:
         print(f"{label:<45}{'insufficient data':>38}")
         return
-
     try:
         u, p = stats.mannwhitneyu(r, nr, alternative="two-sided")
         print(f"{label:<45}{r.median():>12.2f}{nr.median():>12.2f}{p:>12.4f}{'*' if p < 0.05 else ''}")
@@ -159,23 +173,17 @@ def chisq_row(label, col, resp_val):
     if col not in df.columns:
         print(f"{label:<45}{'missing column':>38}")
         return
-
     if df[col].dropna().nunique() < 2:
         print(f"{label:<45}{'insufficient variation':>38}")
         return
-
     ct = pd.crosstab(df[col], df["responder"])
-
     if ct.shape[0] < 2 or ct.shape[1] < 2:
         print(f"{label:<45}{'insufficient variation':>38}")
         return
-
     try:
         chi2, p, dof, expected = stats.chi2_contingency(ct)
-
         r_pct = 100 * df.loc[df["responder"] == 1, col].eq(resp_val).mean()
         nr_pct = 100 * df.loc[df["responder"] == 0, col].eq(resp_val).mean()
-
         print(f"{label:<45}{r_pct:>11.1f}%{nr_pct:>11.1f}%{p:>12.4f}{'*' if p < 0.05 else ''}")
     except Exception:
         print(f"{label:<45}{'test failed':>38}")
@@ -184,19 +192,14 @@ def chisq_binary_row(label, col):
     if col not in df.columns:
         print(f"{label:<45}{'missing column':>38}")
         return
-
     ct = pd.crosstab(df[col], df["responder"])
-
     if ct.shape[0] < 2 or ct.shape[1] < 2:
         print(f"{label:<45}{'insufficient variation':>38}")
         return
-
     try:
         chi2, p, dof, expected = stats.chi2_contingency(ct)
-
         r_pct = 100 * df.loc[df["responder"] == 1, col].mean()
         nr_pct = 100 * df.loc[df["responder"] == 0, col].mean()
-
         print(f"{label:<45}{r_pct:>11.1f}%{nr_pct:>11.1f}%{p:>12.4f}{'*' if p < 0.05 else ''}")
     except Exception:
         print(f"{label:<45}{'test failed':>38}")
@@ -207,6 +210,9 @@ def chisq_binary_row(label, col):
 print("\n--- CONTINUOUS PREDICTORS ---")
 mannwhitney_row("Baseline A1c (median)", resp["baseline_a1c"], non_resp["baseline_a1c"])
 mannwhitney_row("Age (median)", resp["approximate_age"], non_resp["approximate_age"])
+
+if "preop_bmi" in df.columns and df["preop_bmi"].notna().sum() > 0:
+    mannwhitney_row("Pre-op BMI (median)", resp["preop_bmi"], non_resp["preop_bmi"])
 
 if "num_secondary_meds" in df.columns:
     mannwhitney_row("Number of diabetes meds", resp["num_secondary_meds"], non_resp["num_secondary_meds"])
@@ -254,7 +260,6 @@ if race_col in df.columns:
         r_pct = 100 * resp[race_col].eq(race).mean()
         nr_pct = 100 * non_resp[race_col].eq(race).mean()
         print(f"  {race:<43}{r_pct:>11.1f}%{nr_pct:>11.1f}%")
-
     ct = pd.crosstab(df["race_simplified"], df["responder"])
     if ct.shape[0] >= 2 and ct.shape[1] == 2:
         chi2, p, dof, expected = stats.chi2_contingency(ct)
@@ -266,7 +271,6 @@ if eth_col in df.columns:
         r_pct = 100 * resp[eth_col].eq(eth).mean()
         nr_pct = 100 * non_resp[eth_col].eq(eth).mean()
         print(f"  {eth:<43}{r_pct:>11.1f}%{nr_pct:>11.1f}%")
-
     chisq_binary_row("Hispanic or Latino (%)", "is_hispanic")
 
 print("\n--- REGIONAL LOCATION ---")
@@ -275,7 +279,6 @@ if "patient_regional_location" in df.columns:
         r_pct = 100 * resp["patient_regional_location"].eq(region).mean()
         nr_pct = 100 * non_resp["patient_regional_location"].eq(region).mean()
         print(f"  {region:<43}{r_pct:>11.1f}%{nr_pct:>11.1f}%")
-
     ct = pd.crosstab(df["patient_regional_location"].fillna("Unknown"), df["responder"])
     if ct.shape[0] >= 2 and ct.shape[1] == 2:
         chi2, p, dof, expected = stats.chi2_contingency(ct)
@@ -287,18 +290,17 @@ if "marital_status" in df.columns:
         r_pct = 100 * resp["marital_status"].eq(status).mean()
         nr_pct = 100 * non_resp["marital_status"].eq(status).mean()
         print(f"  {status:<43}{r_pct:>11.1f}%{nr_pct:>11.1f}%")
-
     ct = pd.crosstab(df["marital_status"].fillna("Unknown"), df["responder"])
     if ct.shape[0] >= 2 and ct.shape[1] == 2:
         chi2, p, dof, expected = stats.chi2_contingency(ct)
         print(f"  {'Marital status overall (chi-square)':<43}{'':>12}{'':>12}{p:>12.4f}{'*' if p < 0.05 else ''}")
 
 # ==========================================
-# FINAL NOTE
+# FINAL NOTES
 # ==========================================
 print("\n* p < 0.05 (UNADJUSTED P-VALUES)")
 print("NOTE: Multiple comparisons not corrected (exploratory univariate analysis).")
-print("BMI and diabetes duration excluded due to VM disk space constraints.")
+print("NOTE: Diabetes duration excluded due to EHR left truncation bias.")
 
 df.to_csv("step17_univariate_results.csv", index=False)
 print("\nSaved: step17_univariate_results.csv")
