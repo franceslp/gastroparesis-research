@@ -87,8 +87,8 @@ df = df.merge(confounders[conf_cols], on="patient_id", how="left")
 if os.path.exists("preop_bmi.csv"):
     bmi = pd.read_csv("preop_bmi.csv", dtype=str)
     bmi["patient_id"] = bmi["patient_id"].astype(str).str.strip()
-    bmi["preop_bmi"] = pd.to_numeric(bmi["preop_bmi"], errors="coerce")
-    df = df.merge(bmi[["patient_id", "preop_bmi"]], on="patient_id", how="left")
+ bmi["preop_bmi"] = pd.to_numeric(bmi["bmi_value"], errors="coerce")
+df = df.merge(bmi[["patient_id", "preop_bmi"]], on="patient_id", how="left")
     print(f"Patients with BMI data: {df['preop_bmi'].notna().sum()}")
 else:
     df["preop_bmi"] = np.nan
