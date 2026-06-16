@@ -119,7 +119,7 @@ print(f"Patients with baseline A1c: {df['baseline_a1c'].notna().sum()}")
 print(f"Patients with Year 1 AND baseline A1c: {len(year1_all)}")
 print(f"Patients with Year 5 AND baseline A1c: {len(year5)}")
 print(f"Year 5 patients missing Year 1 data: {y5_missing_y1}")
-print(f"Year 1 patients without Year 5 (dropouts): {len(year1_only)}"))
+print(f"Year 1 patients without Year 5 (dropouts): {len(year1_only)}")
 
 # ==========================================
 # HELPER FUNCTIONS
