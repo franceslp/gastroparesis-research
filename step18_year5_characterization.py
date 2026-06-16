@@ -42,7 +42,7 @@ print(f"\nprocedure_code in longitudinal: {'procedure_code' in longitudinal.colu
 # ==========================================
 demo_cols = [c for c in [
     "patient_id","sex","race","ethnicity",
-    "approximate_age","patient_regional_location","diabetes_type"
+    "approximate_age","patient_regional_location"
 ] if c in demographics.columns]
 
 df = longitudinal.merge(demographics[demo_cols], on="patient_id", how="left")
